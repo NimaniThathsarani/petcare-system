@@ -214,10 +214,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: SPACING.sm,
   },
-  menuLabel: {
-    fontSize: 14,
-    fontWeight: FONTS.semiBold,
-    color: COLORS.text,
-    textAlign: 'center',
-  },
 });
