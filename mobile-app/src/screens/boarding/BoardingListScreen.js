@@ -345,5 +345,16 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontWeight: FONTS.semiBold,
   },
-
+  fab: {
+    position: 'absolute',
+    bottom: SPACING.xl,
+    right: SPACING.lg,
+    backgroundColor: COLORS.primary,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOWS.md,
+  },
 });
