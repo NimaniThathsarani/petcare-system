@@ -5,6 +5,7 @@ node_modules/
 .env.*
 .DS_Store
 
+mobile-app/ios/
 mobile-app/ios/Pods/
 mobile-app/ios/build/
 mobile-app/android/build/
