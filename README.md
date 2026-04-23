@@ -11,7 +11,4 @@
 - Express.js
 - MongoDB
 
-## Branch Strategy
-- main → stable final version
-- develop → integration branch
-- feature branches → individual member work
+
