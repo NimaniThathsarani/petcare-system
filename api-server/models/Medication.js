@@ -6,6 +6,10 @@ const medicationSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  appointment: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Appointment'
+  },
   petName:       { type: String, required: true },
   medicationName:{ type: String, required: true },
   dosage:        { type: String, required: true },

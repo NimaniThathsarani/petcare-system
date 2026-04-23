@@ -11,10 +11,9 @@ const userSchema = new mongoose.Schema({
       'admin', 
       'vet_manager', 
       'vaccine_manager', 
-      'medication_manager', 
       'grooming_manager', 
-      'diet_manager', 
-      'boarding_manager'
+      'boarding_manager',
+      'doctor'
     ], 
     default: 'owner' 
   }

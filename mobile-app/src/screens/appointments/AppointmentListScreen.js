@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useContext } from 'react';
 import { 
   View, 
   Text, 
@@ -13,24 +13,45 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../services/api';
+import { AuthContext } from '../../context/AuthContext';
 import { COLORS, SPACING, FONTS, SHADOWS } from '../../theme/theme';
 
-export default function AppointmentListScreen({ navigation }) {
+export default function AppointmentListScreen({ navigation, route }) {
+  const { user } = useContext(AuthContext);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedTab, setSelectedTab] = useState(route.params?.initialTab || 'bookings');
+
+  const isManager = user?.role !== 'owner';
 
   const fetchAppointments = async (isRefreshing = false) => {
     if (!isRefreshing) setLoading(true);
     try {
       const res = await api.get('/appointments');
-      setAppointments(res.data);
+      // Sort globally first
+      const sortedData = res.data.sort((a, b) => new Date(a.date) - new Date(b.date));
+      setAppointments(sortedData);
     } catch (err) {
       Alert.alert('Error', 'Could not load appointments');
     } finally { 
-      setLoading(false); 
+      setLoading(true); 
       setRefreshing(false);
+      setLoading(false);
     }
+  };
+
+  const groupAppointmentsByDate = (data) => {
+    const groups = {};
+    data.forEach(item => {
+      const dateKey = new Date(item.date).toLocaleDateString();
+      if (!groups[dateKey]) groups[dateKey] = [];
+      groups[dateKey].push(item);
+    });
+    return Object.keys(groups).map(date => ({
+      date,
+      data: groups[date]
+    }));
   };
 
   useFocusEffect(useCallback(() => { fetchAppointments(); }, []));
@@ -42,30 +63,43 @@ export default function AppointmentListScreen({ navigation }) {
 
   const getStatusColor = (status) => {
     switch (status) {
+      case 'Available': return COLORS.primary;
       case 'Completed': return COLORS.success;
       case 'Cancelled': return COLORS.error;
       default: return COLORS.secondary;
     }
   };
 
-  const renderItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.card}
-      onPress={() => navigation.navigate('AppointmentDetail', { id: item._id })}
-      activeOpacity={0.7}
-    >
-      <View style={styles.cardHeader}>
-        <View style={styles.petIconContainer}>
-          <Ionicons name="paw" size={20} color={COLORS.primary} />
+  const renderItem = ({ item }) => {
+    const isAvailable = item.status === 'Available';
+    return (
+      <TouchableOpacity 
+        style={styles.card}
+        onPress={() => navigation.navigate('AppointmentDetail', { id: item._id })}
+        activeOpacity={0.7}
+      >
+        <View style={styles.cardHeader}>
+          <View style={styles.petIconContainer}>
+            <Ionicons name={isAvailable ? "medical" : "paw"} size={20} color={COLORS.primary} />
+          </View>
+          <View style={styles.headerText}>
+            <Text style={styles.petName}>
+              {isAvailable ? item.vetName : item.petName}
+            </Text>
+            {isAvailable ? (
+              <Text style={styles.vetName}>Available Vet Slot</Text>
+            ) : (
+              <Text style={styles.ownerName}>
+                Owner: {item.owner?.name || 'Unknown'} • {item.vetName}
+              </Text>
+            )}
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '15' }]}>
+            <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
+              {item.status.toUpperCase()}
+            </Text>
+          </View>
         </View>
-        <View style={styles.headerText}>
-          <Text style={styles.petName}>{item.petName}</Text>
-          <Text style={styles.vetName}>with {item.vetName}</Text>
-        </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '15' }]}>
-          <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>{item.status}</Text>
-        </View>
-      </View>
       
       <View style={styles.cardFooter}>
         <View style={styles.footerItem}>
@@ -78,47 +112,146 @@ export default function AppointmentListScreen({ navigation }) {
         </View>
       </View>
     </TouchableOpacity>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
+      
+      {isManager && (
+        <View style={styles.tabBar}>
+          <TouchableOpacity 
+            style={[styles.tabItem, selectedTab === 'availability' && styles.tabItemActive]}
+            onPress={() => setSelectedTab('availability')}
+          >
+            <Ionicons name="calendar-outline" size={20} color={selectedTab === 'availability' ? COLORS.primary : COLORS.textLight} />
+            <Text style={[styles.tabText, selectedTab === 'availability' && styles.tabTextActive]}>Appt Slots</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.tabItem, selectedTab === 'bookings' && styles.tabItemActive]}
+            onPress={() => setSelectedTab('bookings')}
+          >
+            <Ionicons name="list-outline" size={20} color={selectedTab === 'bookings' ? COLORS.primary : COLORS.textLight} />
+            <Text style={[styles.tabText, selectedTab === 'bookings' && styles.tabTextActive]}>Vet Appointments</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.tabItem, selectedTab === 'history' && styles.tabItemActive]}
+            onPress={() => setSelectedTab('history')}
+          >
+            <Ionicons name="archive-outline" size={20} color={selectedTab === 'history' ? COLORS.primary : COLORS.textLight} />
+            <Text style={[styles.tabText, selectedTab === 'history' && styles.tabTextActive]}>History</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={styles.content}>
         {loading ? (
           <View style={styles.centered}>
             <ActivityIndicator size="large" color={COLORS.primary} />
           </View>
         ) : (
-          <FlatList 
-            data={appointments} 
-            keyExtractor={item => item._id}
-            renderItem={renderItem}
-            contentContainerStyle={styles.listContent}
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Ionicons name="calendar-outline" size={64} color={COLORS.border} />
-                <Text style={styles.emptyText}>No appointments found</Text>
-                <TouchableOpacity 
-                  style={styles.emptyBtn}
-                  onPress={() => navigation.navigate('AppointmentForm')}
-                >
-                  <Text style={styles.emptyBtnText}>Book Now</Text>
-                </TouchableOpacity>
-              </View>
-            }
-          />
+          <View style={{ flex: 1 }}>
+            {user?.role === 'owner' ? (
+              <>
+                {appointments.some(a => a.status === 'Available') && (
+                  <View style={styles.sectionHeader}>
+                    <Ionicons name="sparkles" size={20} color={COLORS.primary} />
+                    <Text style={styles.sectionTitle}>Available Slots</Text>
+                  </View>
+                )}
+                <FlatList 
+                  data={appointments.filter(a => a.status === 'Available')} 
+                  keyExtractor={item => 'available_' + item._id}
+                  renderItem={renderItem}
+                  scrollEnabled={false}
+                  contentContainerStyle={styles.subListContent}
+                />
+
+                <View style={[styles.sectionHeader, { marginTop: SPACING.md }]}>
+                  <Ionicons name="calendar" size={20} color={COLORS.primary} />
+                  <Text style={styles.sectionTitle}>My Appointments</Text>
+                </View>
+                <FlatList 
+                  data={appointments.filter(a => a.status !== 'Available')} 
+                  keyExtractor={item => item._id}
+                  renderItem={renderItem}
+                  contentContainerStyle={styles.listContent}
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  ListEmptyComponent={
+                    <View style={styles.emptyContainer}>
+                      <Ionicons name="calendar-outline" size={64} color={COLORS.border} />
+                      <Text style={styles.emptyText}>No appointments found</Text>
+                    </View>
+                  }
+                />
+              </>
+            ) : (
+              <FlatList 
+                data={groupAppointmentsByDate(
+                  appointments.filter(a => {
+                    const matchesTab = (
+                      (selectedTab === 'availability' && a.status === 'Available') ||
+                      (selectedTab === 'bookings' && ['Pending', 'Scheduled'].includes(a.status)) ||
+                      (selectedTab === 'history' && ['Completed', 'Cancelled'].includes(a.status))
+                    );
+
+                    if (!matchesTab) return false;
+
+                    // Specialized filtering for Vaccination Manager
+                    if (user?.role === 'vaccine_manager' && selectedTab !== 'availability') {
+                      return a.reason?.toLowerCase().includes('vaccination');
+                    }
+
+                    return true;
+                  })
+                )} 
+                keyExtractor={item => item.date}
+                renderItem={({ item }) => (
+                  <View style={styles.dateGroup}>
+                    <Text style={styles.dateGroupHeader}>{item.date}</Text>
+                    {item.data.map(appt => (
+                      <View key={appt._id}>
+                        {renderItem({ item: appt })}
+                      </View>
+                    ))}
+                  </View>
+                )}
+                contentContainerStyle={styles.listContent}
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <Ionicons name={selectedTab === 'availability' ? "calendar-outline" : "list-outline"} size={64} color={COLORS.border} />
+                    <Text style={styles.emptyText}>
+                      {selectedTab === 'availability' ? 'No appointment slots listed' : 'No patient bookings found'}
+                    </Text>
+                    {selectedTab === 'availability' && (
+                      <TouchableOpacity 
+                        style={styles.emptyBtn}
+                        onPress={() => navigation.navigate('AppointmentForm')}
+                      >
+                        <Text style={styles.emptyBtnText}>Add Appointment Slot</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                }
+              />
+            )}
+          </View>
         )}
       </View>
       
-      <TouchableOpacity 
-        style={styles.fab}
-        onPress={() => navigation.navigate('AppointmentForm')}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={30} color={COLORS.white} />
-      </TouchableOpacity>
+      {(!isManager || selectedTab === 'availability') && (
+        <TouchableOpacity 
+          style={styles.fab}
+          onPress={() => navigation.navigate(user?.role === 'owner' ? 'AvailableSlots' : 'AppointmentForm')}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={30} color={COLORS.white} />
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
@@ -130,6 +263,22 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+    gap: 8,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: FONTS.bold,
+    color: COLORS.text,
+  },
+  subListContent: {
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.sm,
   },
   listContent: {
     padding: SPACING.md,
@@ -167,6 +316,11 @@ const styles = StyleSheet.create({
   vetName: {
     fontSize: 14,
     color: COLORS.textLight,
+  },
+  ownerName: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: FONTS.medium,
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -231,4 +385,47 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...SHADOWS.md,
   },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  tabItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 8,
+  },
+  tabItemActive: {
+    backgroundColor: COLORS.primary + '10',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: FONTS.semiBold,
+    color: COLORS.textLight,
+  },
+  tabTextActive: {
+    color: COLORS.primary,
+  },
+  dateGroup: {
+    marginBottom: SPACING.md,
+  },
+  dateGroupHeader: {
+    fontSize: 14,
+    fontWeight: FONTS.bold,
+    color: COLORS.primary,
+    backgroundColor: COLORS.primary + '10',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginBottom: SPACING.sm,
+    alignSelf: 'flex-start',
+    textTransform: 'uppercase',
+  }
 });

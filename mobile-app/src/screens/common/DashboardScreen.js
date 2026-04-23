@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -6,25 +6,43 @@ import {
   ScrollView, 
   TouchableOpacity, 
   SafeAreaView, 
-  StatusBar 
+  StatusBar
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
+import api from '../../services/api';
 import { COLORS, SPACING, FONTS, SHADOWS } from '../../theme/theme';
 
 export default function DashboardScreen({ navigation }) {
   const { user, logout } = useContext(AuthContext);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchUnreadCount = async () => {
+    try {
+      const res = await api.get('/notifications');
+      const unread = res.data.filter(n => !n.read).length;
+      setUnreadCount(unread);
+    } catch (err) {
+      console.log('Error fetching unread count:', err);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchUnreadCount();
+    }, [])
+  );
 
   const getRoleTitle = (role) => {
     switch (role) {
-      case 'owner': return 'Pet Owner Dashboard';
-      case 'admin': return 'System Administrator';
-      case 'vet_manager': return 'Vet Appointment Manager';
-      case 'vaccine_manager': return 'Vaccination Manager';
-      case 'medication_manager': return 'Medication Manager';
-      case 'grooming_manager': return 'Grooming Manager';
-      case 'diet_manager': return 'Diet Plan Manager';
-      case 'boarding_manager': return 'Boarding Manager';
+      case 'owner': return 'Pet Care Portal';
+      case 'admin': return 'Hospital Administrator';
+      case 'vet_manager': return 'Clinical Director';
+      case 'vaccine_manager': return 'Immunization Dept';
+      case 'grooming_manager': return 'Grooming Salon';
+      case 'boarding_manager': return 'Recovery & Boarding';
+      case 'doctor': return 'Veterinarian Portal';
       default: return 'Dashboard';
     }
   };
@@ -37,55 +55,40 @@ export default function DashboardScreen({ navigation }) {
     switch (role) {
       case 'owner':
         return [
-          { title: 'My Pets', icon: 'paw', screen: 'MyPets' },
-          { title: 'Book Vet', icon: 'medical', screen: 'Appointments' },
-          { title: 'Vaccinations', icon: 'shield-checkmark', screen: 'Vaccinations' },
-          { title: 'Medications', icon: 'flask', screen: 'Medications' },
+          { title: 'Add Pet', icon: 'paw', screen: 'PetForm' },
+          { title: 'Book Vet', icon: 'medical', screen: 'Appointments', params: { screen: 'AvailableSlots' } },
           { title: 'Book Grooming', icon: 'cut', screen: 'Grooming' },
-          { title: 'Diet Plans', icon: 'restaurant', screen: 'Diet' },
           { title: 'Request Boarding', icon: 'bed', screen: 'Boarding', params: { screen: 'BoardingForm' } },
           ...common
         ];
       case 'vet_manager':
         return [
-          { title: 'All Appointments', icon: 'calendar', screen: 'Appointments' },
-          { title: 'Pending List', icon: 'time-outline', screen: 'Appointments' },
-          { title: 'Update Status', icon: 'checkmark-done-circle', screen: 'Appointments' },
-          ...common
+          { title: 'Doctor Sessions', icon: 'people-outline', screen: 'ManageSessions' },
+          { title: 'Add Appointment Slots', icon: 'calendar', screen: 'Appointments', params: { initialTab: 'availability' } },
+          { title: 'Vet Appointments', icon: 'time-outline', screen: 'Appointments', params: { initialTab: 'bookings' } },
         ];
       case 'vaccine_manager':
         return [
-          { title: 'Add Record', icon: 'add-circle-outline', screen: 'Vaccinations' },
-          { title: 'View All', icon: 'list', screen: 'Vaccinations' },
-          { title: 'Update Due', icon: 'calendar-outline', screen: 'Vaccinations' },
-          ...common
-        ];
-      case 'medication_manager':
-        return [
-          { title: 'Add Prescription', icon: 'medkit-outline', screen: 'Medications' },
-          { title: 'Active Meds', icon: 'pulse-outline', screen: 'Medications' },
-          { title: 'Update Status', icon: 'refresh-circle-outline', screen: 'Medications' },
-          ...common
+          { title: 'Appointments', icon: 'calendar-outline', screen: 'Appointments' },
+          { title: 'Vaccine Rx', icon: 'mail-unread-outline', screen: 'VaccineRequests' },
+          { title: 'Records', icon: 'shield-checkmark-outline', screen: 'Vaccinations' },
         ];
       case 'grooming_manager':
         return [
-          { title: 'Bookings', icon: 'cut-outline', screen: 'Grooming' },
-          { title: 'Schedule', icon: 'calendar-outline', screen: 'Grooming' },
-          { title: 'History', icon: 'journal-outline', screen: 'Grooming' },
-          ...common
-        ];
-      case 'diet_manager':
-        return [
-          { title: 'Create Plan', icon: 'restaurant-outline', screen: 'Diet' },
-          { title: 'Current Plans', icon: 'fast-food-outline', screen: 'Diet' },
-          { title: 'Update Meal', icon: 'time-outline', screen: 'Diet' },
-          ...common
+          { title: 'Active Bookings', icon: 'cut', screen: 'Grooming' },
+          { title: 'Service Menu', icon: 'settings-outline', screen: 'Grooming', params: { screen: 'GroomingServiceManagement' } },
         ];
       case 'boarding_manager':
         return [
-          { title: 'Requests', icon: 'bed-outline', screen: 'Boarding' },
-          { title: 'Active Stay', icon: 'home-outline', screen: 'Boarding' },
-          { title: 'Check-In/Out', icon: 'log-in-outline', screen: 'Boarding' },
+          { title: 'New Requests', icon: 'mail-unread-outline', screen: 'Boarding', params: { initialTab: 'Requests' } },
+          { title: 'Active Stays', icon: 'bed-outline', screen: 'Boarding', params: { initialTab: 'Active' } },
+          { title: 'Cage Layout', icon: 'cube-outline', screen: 'Cages' },
+        ];
+      case 'doctor':
+        return [
+          { title: 'My Sessions', icon: 'calendar-outline', screen: 'DoctorSessions' },
+          { title: 'Add Prescription', icon: 'medkit-outline', screen: 'Appointments' },
+          { title: 'Current Plans', icon: 'fast-food-outline', screen: 'Diet' },
           ...common
         ];
       case 'admin':
@@ -111,9 +114,22 @@ export default function DashboardScreen({ navigation }) {
             <Text style={styles.welcome}>Welcome back,</Text>
             <Text style={styles.name}>{user?.name || 'User'}</Text>
           </View>
-          <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
-            <Ionicons name="log-out-outline" size={24} color={COLORS.error} />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity 
+              style={styles.actionBtn} 
+              onPress={() => navigation.navigate('Notifications')}
+            >
+              <Ionicons name="notifications-outline" size={24} color={COLORS.primary} />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+              <Ionicons name="log-out-outline" size={24} color={COLORS.error} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.roleCard}>
@@ -173,6 +189,39 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     ...SHADOWS.sm,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  actionBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...SHADOWS.sm,
+  },
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: COLORS.error,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: COLORS.surface,
+  },
+  badgeText: {
+    color: COLORS.white,
+    fontSize: 10,
+    fontWeight: FONTS.bold,
   },
   roleCard: {
     backgroundColor: COLORS.primary,
