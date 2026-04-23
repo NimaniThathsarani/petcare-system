@@ -6,6 +6,10 @@ const dietSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  appointment: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Appointment'
+  },
   petName:      { type: String, required: true },
   foodType:     { type: String, required: true },
   brand:        { type: String },

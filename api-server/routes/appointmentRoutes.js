@@ -6,12 +6,15 @@ const {
   getAppointments,
   getAppointment,
   updateAppointment,
-  deleteAppointment
+  deleteAppointment,
+  bookAppointment
 } = require('../controllers/appointmentController');
 
 router.route('/')
   .get(protect, getAppointments)
   .post(protect, createAppointment);
+
+router.put('/:id/book', protect, bookAppointment);
 
 router.route('/:id')
   .get(protect, getAppointment)

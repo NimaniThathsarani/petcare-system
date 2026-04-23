@@ -7,7 +7,11 @@ const groomingSchema = new mongoose.Schema({
     required: true
   },
   petName:      { type: String, required: true },
-  serviceType:  { type: String, required: true },
+  service: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'GroomingService'
+  },
+  serviceType:  { type: String },
   groomerName:  { type: String },
   salonName:    { type: String },
   date:         { type: Date, required: true },

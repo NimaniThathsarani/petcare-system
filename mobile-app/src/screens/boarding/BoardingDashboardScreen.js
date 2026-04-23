@@ -23,12 +23,14 @@ import { COLORS, SPACING, FONTS, SHADOWS } from '../../theme/theme';
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = (width - SPACING.lg * 3) / 2;
 
-export default function BoardingDashboardScreen({ navigation }) {
+export default function BoardingDashboardScreen({ navigation, route }) {
   const { logout } = useContext(AuthContext);
   const [boardings, setBoardings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [tab, setTab] = useState('Requests'); // 'Requests', 'Active', 'History'
+  
+  const initialTab = route.params?.initialTab || 'Requests';
+  const [tab, setTab] = useState(initialTab);
   
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -142,32 +144,36 @@ export default function BoardingDashboardScreen({ navigation }) {
       </View>
 
       <View style={styles.tabBar}>
-        <TouchableOpacity 
-          style={[styles.tab, tab === 'Requests' && styles.activeTab]}
-          onPress={() => setTab('Requests')}
-        >
-          <Text style={[styles.tabText, tab === 'Requests' && styles.activeTabText]}>Requests</Text>
-          {requests.length > 0 && (
-            <View style={[styles.countBadge, { backgroundColor: COLORS.pending + '15' }]}>
-              <Text style={[styles.countText, { color: COLORS.pending }]}>{requests.length}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, tab === 'Active' && styles.activeTab]}
-          onPress={() => setTab('Active')}
-        >
-          <Text style={[styles.tabText, tab === 'Active' && styles.activeTabText]}>Active Stays</Text>
-          <View style={styles.countBadge}>
-            <Text style={styles.countText}>{activeStays.length}</Text>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, tab === 'History' && styles.activeTab]}
-          onPress={() => setTab('History')}
-        >
-          <Text style={[styles.tabText, tab === 'History' && styles.activeTabText]}>History</Text>
-        </TouchableOpacity>
+        {initialTab === 'Requests' ? (
+          <TouchableOpacity 
+            style={[styles.tab, styles.activeTab]}
+          >
+            <Text style={[styles.tabText, styles.activeTabText]}>Pending Requests</Text>
+            {requests.length > 0 && (
+              <View style={[styles.countBadge, { backgroundColor: COLORS.pending + '15' }]}>
+                <Text style={[styles.countText, { color: COLORS.pending }]}>{requests.length}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <>
+            <TouchableOpacity 
+              style={[styles.tab, tab === 'Active' && styles.activeTab]}
+              onPress={() => setTab('Active')}
+            >
+              <Text style={[styles.tabText, tab === 'Active' && styles.activeTabText]}>Active Stays</Text>
+              <View style={styles.countBadge}>
+                <Text style={styles.countText}>{activeStays.length}</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.tab, tab === 'History' && styles.activeTab]}
+              onPress={() => setTab('History')}
+            >
+              <Text style={[styles.tabText, tab === 'History' && styles.activeTabText]}>History</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
 
       {loading ? (

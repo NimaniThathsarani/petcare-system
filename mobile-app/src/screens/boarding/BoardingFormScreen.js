@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import { AuthContext } from '../../context/AuthContext';
 import { 
   View, 
   Text, 
@@ -22,6 +23,8 @@ import api from '../../services/api';
 import { COLORS, SPACING, FONTS, SHADOWS } from '../../theme/theme';
 
 export default function BoardingFormScreen({ navigation, route }) {
+  const { user } = useContext(AuthContext);
+  const isOwner = user?.role === 'owner';
   const editId = route.params?.id;
   const [petName, setPetName] = useState('');
   const [ownerName, setOwnerName] = useState('');
@@ -40,10 +43,31 @@ export default function BoardingFormScreen({ navigation, route }) {
   const [showCagePicker, setShowCagePicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
+  const [pets, setPets] = useState([]);
+  const [petsLoading, setPetsLoading] = useState(false);
 
   useEffect(() => { 
     if (editId) loadBoarding(); 
+    if (isOwner) fetchPets();
   }, []);
+
+  const fetchPets = async () => {
+    try {
+      setPetsLoading(true);
+      const res = await api.get('/pets');
+      setPets(res.data);
+    } catch (err) {
+      console.log('Error fetching pets:', err);
+    } finally {
+      setPetsLoading(false);
+    }
+  };
+  
+  const handlePetSelect = (pet) => {
+    setPetName(pet.name);
+    if (pet.breed) setBreed(pet.breed);
+    if (pet.age) setPetAge(String(pet.age));
+  };
 
   useEffect(() => {
     fetchCages();
@@ -167,13 +191,50 @@ export default function BoardingFormScreen({ navigation, route }) {
           </View>
 
           <View style={styles.form}>
-            <CustomInput 
-              label="Pet Name *" 
-              value={petName} 
-              onChangeText={setPetName} 
-              placeholder="e.g. Buddy" 
-              icon="paw-outline"
-            />
+            {isOwner ? (
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Select Pet *</Text>
+                {petsLoading ? (
+                  <ActivityIndicator size="small" color={COLORS.primary} style={{ alignSelf: 'flex-start' }} />
+                ) : pets.length > 0 ? (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.petSelector}>
+                    {pets.map(pet => (
+                      <TouchableOpacity 
+                        key={pet._id} 
+                        style={[styles.petOption, petName === pet.name && styles.petOptionSelected]}
+                        onPress={() => handlePetSelect(pet)}
+                      >
+                        <Ionicons 
+                          name="paw" 
+                          size={16} 
+                          color={petName === pet.name ? COLORS.white : COLORS.primary} 
+                          style={{ marginRight: 6 }}
+                        />
+                        <Text style={[styles.petOptionText, petName === pet.name && styles.petOptionTextSelected]}>
+                          {pet.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <TouchableOpacity 
+                    style={styles.noPetWarning}
+                    onPress={() => navigation.navigate('PetForm')}
+                  >
+                    <Ionicons name="alert-circle" size={20} color={COLORS.error} />
+                    <Text style={styles.noPetText}>No pets found. <Text style={styles.linkText}>Register one now First.</Text></Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ) : (
+              <CustomInput 
+                label="Pet Name *" 
+                value={petName} 
+                onChangeText={setPetName} 
+                placeholder="e.g. Buddy" 
+                icon="paw-outline"
+              />
+            )}
 
             <CustomInput 
               label="Owner Name" 
@@ -676,4 +737,50 @@ const styles = StyleSheet.create({
     color: COLORS.error,
     fontWeight: FONTS.bold,
   },
+  petSelector: {
+    flexDirection: 'row',
+    marginBottom: SPACING.md,
+  },
+  petOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.sm,
+  },
+  petOptionSelected: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  petOptionText: {
+    fontSize: 14,
+    fontWeight: FONTS.semiBold,
+    color: COLORS.text,
+  },
+  petOptionTextSelected: {
+    color: COLORS.white,
+  },
+  noPetWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.error + '10',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.error + '30',
+  },
+  noPetText: {
+    marginLeft: 8,
+    fontSize: 13,
+    color: COLORS.text,
+  },
+  linkText: {
+    color: COLORS.primary,
+    fontWeight: FONTS.bold,
+  }
 });

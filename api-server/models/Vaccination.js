@@ -6,6 +6,10 @@ const vaccinationSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  appointment: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Appointment'
+  },
   petName:       { type: String, required: true },
   vaccineName:   { type: String, required: true },
   manufacturer:  { type: String },

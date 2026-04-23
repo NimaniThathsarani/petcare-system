@@ -29,9 +29,8 @@ export default function LoginScreen({ navigation }) {
     try {
       await login(email, password);
     } catch (err) {
-      console.log('Login Error:', err.response?.data || err.message);
-      const msg = err.response?.data?.message || 'Invalid credentials or server unreachable';
-      Alert.alert('Invalid Credentials', msg);
+      const msg = err.response?.data?.message || 'Invalid Login: Please check your connection';
+      Alert.alert('Login Failed', msg);
     } finally {
       setLoading(false);
     }
@@ -44,9 +43,9 @@ export default function LoginScreen({ navigation }) {
         style={styles.container}
       >
         <View style={styles.header}>
-          <Text style={styles.emoji}>🐾</Text>
+          <Text style={styles.emoji}>🏥</Text>
           <Text style={styles.title}>Pet Care</Text>
-          <Text style={styles.subtitle}>Where every pet feels at home</Text>
+          <Text style={styles.subtitle}>Expert Clinical Care for Your Pets</Text>
         </View>
 
         <View style={styles.form}>

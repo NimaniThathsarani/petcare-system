@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
@@ -9,8 +10,9 @@ const generateToken = (id) => {
 const registerUser = async (req, res) => {
   const { name, email, password, role } = req.body;
   try {
+    const emailLower = email ? email.toLowerCase() : '';
     // Email must end with @gmail.com
-    if (!email || !email.toLowerCase().endsWith('@gmail.com')) {
+    if (!emailLower || !emailLower.endsWith('@gmail.com')) {
       return res.status(400).json({ message: 'Email must be a @gmail.com address' });
     }
 
@@ -20,7 +22,7 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: 'Password must be at least 8 characters with one uppercase letter and one symbol' });
     }
 
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ email: emailLower });
     if (userExists)
       return res.status(400).json({ message: 'An account with this email already exists' });
 
@@ -29,10 +31,12 @@ const registerUser = async (req, res) => {
 
     const user = await User.create({
       name,
-      email,
+      email: emailLower,
       password: hashedPassword,
       role: role || 'owner'
     });
+
+    console.log(`[AUTH] User created: ${user.email} with role: ${user.role} on database: ${mongoose.connection.name}`);
 
     res.status(201).json({
       _id:   user._id,
@@ -55,8 +59,13 @@ const loginUser = async (req, res) => {
     if (user && (await bcrypt.compare(password, user.password))) {
       // Prevent owners from accessing staff portal
       if (isStaff && user.role === 'owner') {
-        console.log(`Login blocked: owner ${emailLower} attempted staff portal access`);
-        return res.status(401).json({ message: 'Owner accounts cannot access the staff portal' });
+        return res.status(401).json({ message: 'Access Denied: This is an Owner account. Please use the main Pet Care login.' });
+      }
+
+      // Prevent staff from accessing owner portal
+      if (!isStaff && user.role !== 'owner') {
+        const roleLabel = user.role.replace('_', ' ').charAt(0).toUpperCase() + user.role.replace('_', ' ').slice(1);
+        return res.status(401).json({ message: `Access Denied: This is a ${roleLabel} account. Please use the Staff Portal login.` });
       }
 
       res.json({
@@ -67,8 +76,7 @@ const loginUser = async (req, res) => {
         token: generateToken(user._id)
       });
     } else {
-      console.log(`Login failed: Invalid credentials for ${emailLower}`);
-      res.status(401).json({ message: 'Invalid credentials' });
+      res.status(401).json({ message: 'Invalid Login: Please check your email and password' });
     }
   } catch (error) {
     res.status(500).json({ message: error.message });

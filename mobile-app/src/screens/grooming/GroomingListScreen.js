@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useContext } from 'react';
 import { 
   View, 
   Text, 
@@ -9,36 +9,46 @@ import {
   Alert, 
   Image,
   SafeAreaView,
-  StatusBar
+  StatusBar,
+  ScrollView
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../services/api';
+import { AuthContext } from '../../context/AuthContext';
 import { COLORS, SPACING, FONTS, SHADOWS } from '../../theme/theme';
 
 export default function GroomingListScreen({ navigation }) {
+  const { user } = useContext(AuthContext);
   const [groomings, setGroomings] = useState([]);
+  const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchGroomings = async (isRefreshing = false) => {
+  const isManager = user?.role !== 'owner';
+
+  const fetchData = async (isRefreshing = false) => {
     if (!isRefreshing) setLoading(true);
     try {
-      const res = await api.get('/grooming');
-      setGroomings(res.data);
+      const [groomRes, servRes] = await Promise.all([
+        api.get('/grooming'),
+        api.get('/grooming-services')
+      ]);
+      setGroomings(groomRes.data);
+      setServices(servRes.data);
     } catch (err) {
-      Alert.alert('Error', 'Could not load grooming sessions');
+      Alert.alert('Error', 'Could not load grooming data');
     } finally { 
       setLoading(false); 
       setRefreshing(false);
     }
   };
 
-  useFocusEffect(useCallback(() => { fetchGroomings(); }, []));
+  useFocusEffect(useCallback(() => { fetchData(); }, []));
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchGroomings(true);
+    fetchData(true);
   };
 
   const getStatusColor = (status) => {
@@ -67,7 +77,11 @@ export default function GroomingListScreen({ navigation }) {
         </View>
         <View style={styles.headerText}>
           <Text style={styles.petName}>{item.petName}</Text>
-          <Text style={styles.serviceType}>{item.serviceType}</Text>
+          {isManager && item.owner ? (
+            <Text style={styles.ownerName}>Owner: {item.owner.name}</Text>
+          ) : (
+            <Text style={styles.serviceType}>{item.serviceType}</Text>
+          )}
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '15' }]}>
           <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>{item.status}</Text>
@@ -90,6 +104,24 @@ export default function GroomingListScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
+      <View style={styles.listHeader}>
+        <Text style={styles.title}>{isManager ? 'Active Bookings' : 'Grooming Sessions'}</Text>
+      </View>
+      
+      {!isManager && services.length > 0 && (
+        <View style={styles.servicesHeader}>
+          <Text style={styles.servicesTitle}>Our Services & Rates</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.servicesScroll}>
+            {services.map(s => (
+              <View key={s._id} style={styles.serviceMiniCard}>
+                <Text style={styles.miniServiceName}>{s.name}</Text>
+                <Text style={styles.miniServicePrice}>LKR {s.price}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
       <View style={styles.content}>
         {loading ? (
           <View style={styles.centered}>
@@ -138,6 +170,33 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  listHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.sm,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: FONTS.bold,
+    color: COLORS.text,
+  },
+  manageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary + '15',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  manageBtnText: {
+    fontSize: 14,
+    fontWeight: FONTS.semiBold,
+    color: COLORS.primary,
+    marginLeft: 6,
+  },
   listContent: {
     padding: SPACING.md,
     paddingBottom: 100, // Extra space for FAB
@@ -180,6 +239,11 @@ const styles = StyleSheet.create({
   serviceType: {
     fontSize: 14,
     color: COLORS.textLight,
+  },
+  ownerName: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: FONTS.medium,
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -243,5 +307,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...SHADOWS.md,
+  },
+  servicesHeader: {
+    paddingHorizontal: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
+  servicesTitle: {
+    fontSize: 14,
+    fontWeight: FONTS.bold,
+    color: COLORS.textLight,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: SPACING.sm,
+  },
+  servicesScroll: {
+    paddingBottom: 4,
+  },
+  serviceMiniCard: {
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.sm,
+  },
+  miniServiceName: {
+    fontSize: 14,
+    fontWeight: FONTS.bold,
+    color: COLORS.text,
+  },
+  miniServicePrice: {
+    fontSize: 12,
+    color: COLORS.primary,
+    fontWeight: FONTS.semiBold,
+    marginTop: 2,
   },
 });

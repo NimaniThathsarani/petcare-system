@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { 
   View, 
   Text, 
@@ -13,14 +13,18 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../services/api';
+import { AuthContext } from '../../context/AuthContext';
 import { COLORS, SPACING, FONTS, SHADOWS } from '../../theme/theme';
 
 export default function BoardingDetailScreen({ navigation, route }) {
   const { id } = route.params;
+  const { user } = useContext(AuthContext);
   const [boarding, setBoarding] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { fetchBoarding(); }, []);
+  const isManager = user?.role !== 'owner';
+
+  useEffect(() => { fetchBoarding(); }, [id]);
 
   const fetchBoarding = async () => {
     try {
@@ -29,6 +33,19 @@ export default function BoardingDetailScreen({ navigation, route }) {
     } catch (err) {
       Alert.alert('Error', 'Could not load boarding record');
     } finally { setLoading(false); }
+  };
+
+  const handleUpdateStatus = async (newStatus) => {
+    try {
+      setLoading(true);
+      await api.put(`/boarding/${id}`, { status: newStatus });
+      await fetchBoarding();
+      Alert.alert('Success', `Booking ${newStatus.toLowerCase()} successfully`);
+    } catch (err) {
+      Alert.alert('Error', 'Failed to update booking status');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDelete = () => {
@@ -60,6 +77,12 @@ export default function BoardingDetailScreen({ navigation, route }) {
               style={styles.image} 
             />
             <View style={styles.imageOverlay} />
+            <TouchableOpacity 
+              style={styles.backBtn}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+            </TouchableOpacity>
           </View>
         )}
 
@@ -100,16 +123,47 @@ export default function BoardingDetailScreen({ navigation, route }) {
         )}
 
         <View style={styles.actions}>
+          {isManager && boarding.status === 'Pending' && (
+            <TouchableOpacity 
+              style={[styles.primaryBtn, { backgroundColor: COLORS.success }]}
+              onPress={() => handleUpdateStatus('Approved')}
+            >
+              <Ionicons name="checkmark-circle-outline" size={20} color={COLORS.white} style={{ marginRight: 8 }} />
+              <Text style={styles.primaryBtnText}>Approve Booking</Text>
+            </TouchableOpacity>
+          )}
+
+          {isManager && boarding.status === 'Approved' && (
+            <TouchableOpacity 
+              style={[styles.primaryBtn, { backgroundColor: COLORS.primary }]}
+              onPress={() => handleUpdateStatus('Checked-in')}
+            >
+              <Ionicons name="log-in-outline" size={20} color={COLORS.white} style={{ marginRight: 8 }} />
+              <Text style={styles.primaryBtnText}>Check-In Pet</Text>
+            </TouchableOpacity>
+          )}
+
+          {isManager && boarding.status === 'Checked-in' && (
+            <TouchableOpacity 
+              style={[styles.primaryBtn, { backgroundColor: COLORS.secondary }]}
+              onPress={() => handleUpdateStatus('Completed')}
+            >
+              <Ionicons name="checkmark-done" size={20} color={COLORS.white} style={{ marginRight: 8 }} />
+              <Text style={styles.primaryBtnText}>Complete & Check-Out</Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity 
-            style={styles.editBtn}
+            style={styles.secondaryBtn}
             onPress={() => navigation.navigate('BoardingForm', { id: boarding._id })}
           >
-            <Ionicons name="create-outline" size={20} color={COLORS.white} style={{ marginRight: 8 }} />
-            <Text style={styles.editBtnText}>Edit Record</Text>
+            <Ionicons name="create-outline" size={20} color={COLORS.primary} style={{ marginRight: 8 }} />
+            <Text style={styles.secondaryBtnText}>Edit Details</Text>
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
-            <Text style={styles.deleteBtnText}>Delete Record</Text>
+            <Ionicons name="trash-outline" size={20} color={COLORS.error} style={{ marginRight: 8 }} />
+            <Text style={styles.deleteBtnText}>Remove Record</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -152,6 +206,17 @@ const styles = StyleSheet.create({
   imageOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.1)',
+  },
+  backBtn: {
+    position: 'absolute',
+    top: SPACING.xl,
+    left: SPACING.lg,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerSection: {
     paddingHorizontal: SPACING.lg,
@@ -239,29 +304,44 @@ const styles = StyleSheet.create({
   actions: {
     marginHorizontal: SPACING.lg,
     marginTop: SPACING.xl,
+    gap: SPACING.md,
   },
-  editBtn: {
-    backgroundColor: COLORS.primary,
+  primaryBtn: {
     borderRadius: 16,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: SPACING.md,
     ...SHADOWS.sm,
   },
-  editBtnText: {
+  primaryBtnText: {
     color: COLORS.white,
     fontSize: 16,
     fontWeight: FONTS.bold,
   },
-  deleteBtn: {
+  secondaryBtn: {
+    borderRadius: 16,
     padding: 16,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+  },
+  secondaryBtnText: {
+    color: COLORS.primary,
+    fontSize: 16,
+    fontWeight: FONTS.bold,
+  },
+  deleteBtn: {
+    padding: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   deleteBtnText: {
     color: COLORS.error,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: FONTS.semiBold,
   },
 });

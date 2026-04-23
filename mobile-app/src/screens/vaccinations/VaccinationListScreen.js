@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useContext } from 'react';
 import { 
   View, 
   Text, 
@@ -13,18 +13,29 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../services/api';
+import { AuthContext } from '../../context/AuthContext';
 import { COLORS, SPACING, FONTS, SHADOWS } from '../../theme/theme';
 
 export default function VaccinationListScreen({ navigation }) {
+  const { user } = useContext(AuthContext);
   const [vaccinations, setVaccinations] = useState([]);
+  const [pendingAppointments, setPendingAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  const isManager = user?.role !== 'owner';
 
   const fetchVaccinations = async (isRefreshing = false) => {
     if (!isRefreshing) setLoading(true);
     try {
-      const res = await api.get('/vaccinations');
-      setVaccinations(res.data);
+      const vacRes = await api.get('/vaccinations');
+      setVaccinations(vacRes.data);
+
+      if (isManager) {
+        const apptRes = await api.get('/appointments');
+        const completed = apptRes.data.filter(a => a.status === 'Completed');
+        setPendingAppointments(completed);
+      }
     } catch (err) {
       Alert.alert('Error', 'Could not load vaccinations');
     } finally { 
@@ -60,7 +71,11 @@ export default function VaccinationListScreen({ navigation }) {
         </View>
         <View style={styles.headerText}>
           <Text style={styles.petName}>{item.petName}</Text>
-          <Text style={styles.vaccineName}>{item.vaccineName}</Text>
+          {isManager && item.owner ? (
+            <Text style={styles.ownerName}>Owner: {item.owner.name}</Text>
+          ) : (
+            <Text style={styles.vaccineName}>{item.vaccineName}</Text>
+          )}
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '15' }]}>
           <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>{item.status}</Text>
@@ -92,15 +107,42 @@ export default function VaccinationListScreen({ navigation }) {
             contentContainerStyle={styles.listContent}
             refreshing={refreshing}
             onRefresh={onRefresh}
+            ListHeaderComponent={isManager && pendingAppointments.length > 0 && (
+              <View style={styles.pendingSection}>
+                <Text style={styles.sectionTitle}>Visits Awaiting Action (Dog Details)</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+                  {pendingAppointments.map(appt => (
+                    <TouchableOpacity 
+                      key={appt._id} 
+                      style={styles.pendingCard}
+                      onPress={() => navigation.navigate('Visits', { screen: 'AppointmentDetail', params: { id: appt._id } })}
+                    >
+                      <View style={styles.pendingBadge}>
+                        <Ionicons name="paw" size={14} color={COLORS.white} />
+                      </View>
+                      <Text style={styles.pendingPetName}>{appt.petName}</Text>
+                      <Text style={styles.pendingDate}>{new Date(appt.date).toLocaleDateString()}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <Text style={[styles.sectionTitle, { marginTop: SPACING.lg, marginBottom: SPACING.xs }]}>Existing Records</Text>
+              </View>
+            )}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Ionicons name="shield-outline" size={64} color={COLORS.border} />
                 <Text style={styles.emptyText}>No vaccinations found</Text>
                 <TouchableOpacity 
                   style={styles.emptyBtn}
-                  onPress={() => navigation.navigate('VaccinationForm')}
+                  onPress={() => {
+                    if (isManager) {
+                       navigation.navigate('Visits');
+                    } else {
+                       navigation.navigate('VaccinationForm');
+                    }
+                  }}
                 >
-                  <Text style={styles.emptyBtnText}>Add Vaccination</Text>
+                  <Text style={styles.emptyBtnText}>{isManager ? 'Browse Visits' : 'Add Vaccination'}</Text>
                 </TouchableOpacity>
               </View>
             }
@@ -162,6 +204,11 @@ const styles = StyleSheet.create({
   vaccineName: {
     fontSize: 14,
     color: COLORS.textLight,
+  },
+  ownerName: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: FONTS.medium,
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -225,5 +272,52 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...SHADOWS.md,
+  },
+  pendingSection: {
+    marginBottom: SPACING.md,
+    backgroundColor: COLORS.surface,
+    padding: SPACING.md,
+    borderRadius: 20,
+    ...SHADOWS.sm,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: FONTS.bold,
+    color: COLORS.primary,
+    marginBottom: SPACING.md,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  horizontalScroll: {
+    flexDirection: 'row',
+  },
+  pendingCard: {
+    width: 140,
+    backgroundColor: COLORS.background,
+    borderRadius: 16,
+    padding: SPACING.md,
+    marginRight: SPACING.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  pendingBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  pendingPetName: {
+    fontSize: 15,
+    fontWeight: FONTS.bold,
+    color: COLORS.text,
+  },
+  pendingDate: {
+    fontSize: 12,
+    color: COLORS.textLight,
+    marginTop: 2,
   },
 });

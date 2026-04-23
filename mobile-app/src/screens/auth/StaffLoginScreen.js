@@ -17,12 +17,11 @@ import { AuthContext } from '../../context/AuthContext';
 import { COLORS, SPACING, FONTS, SHADOWS } from '../../theme/theme';
 
 const ROLES = [
-  { label: 'Vet Appointment Manager', value: 'vet_manager' },
+  { label: 'Veterinarian Manager', value: 'vet_manager' },
   { label: 'Vaccination Manager', value: 'vaccine_manager' },
-  { label: 'Medication Manager', value: 'medication_manager' },
   { label: 'Grooming Manager', value: 'grooming_manager' },
-  { label: 'Diet Plan Manager', value: 'diet_manager' },
   { label: 'Boarding Manager', value: 'boarding_manager' },
+  { label: 'Doctor', value: 'doctor' },
 ];
 
 export default function StaffLoginScreen({ navigation }) {
@@ -54,9 +53,8 @@ export default function StaffLoginScreen({ navigation }) {
         await staffLogin(email, password);
       }
     } catch (err) {
-      console.log('Staff Auth Error:', err.response?.data || err.message);
-      const msg = err.response?.data?.message || err.message || 'Authentication failed';
-      Alert.alert('Authentication Error', msg);
+      const msg = err.response?.data?.message || 'Invalid Login: Please check your connection';
+      Alert.alert('Login Failed', msg);
     } finally {
       setLoading(false);
     }
